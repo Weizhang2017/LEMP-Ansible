@@ -1,0 +1,92 @@
+---
+
+- hosts: server
+  handlers:
+    - name: restart nginx
+      service: name=postfix state=restarted
+    - name: restart php7.0-fpm
+      service: name=php7.0-fpm state=restarted
+
+  tasks:
+
+    - name: update and upgrade package distribution
+      apt:
+        upgrade: dist
+        update_cache: yes
+
+    - name: Install Nginx
+      apt: name=nginx state=present
+
+    - name: Install MySQL
+      apt: name=mysql-server state=present
+
+    - name: Install packages required for ansible mysql modules on Ubuntu before 16.04
+      apt: name={{ item }} state=present
+      with_items:
+        - python-mysqldb
+      when: ansible_lsb.major_release|int < 16
+
+    - name: Install packages required for ansible mysql modules on Ubuntu 16.04
+      apt: name={{ item }} state=present
+      with_items:
+        - python3-dev
+        - libmysqlclient-dev
+      when: ansible_lsb.major_release|int >= 16
+
+    - name: Install Python package manager on Ubuntu 16.04
+      apt: name=python3-pip state=present
+      when: ansible_lsb.major_release|int >= 16
+
+    - name: Install the Python package required for ansible MySQL modules on Ubuntu 16.04
+      pip: name=mysqlclient
+      when: ansible_lsb.major_release|int >= 16
+
+    - name: Start the MySQL service
+      service: 
+        name: mysql 
+        state: started
+        enabled: true
+
+    - name: update mysql root password for all root accounts
+      mysql_user: 
+        name: root 
+        host: "{{ item }}" 
+        password: '123password123'
+        login_user: root
+        check_implicit_admin: yes
+        priv: "*.*:ALL,GRANT"
+      with_items:
+        - 127.0.0.1
+        - ::1
+        - localhost
+
+    - name: install PHP
+      apt: name={{ item }} state=present
+      with_items:
+        - php-fpm
+        - php-mysql
+
+    - name: disable possilb closest file execution
+      template:
+          src: templates/php.ini
+          dest: /etc/php/7.0/fpm/
+
+    - name: config Nginx to use PHP processor
+      template:
+          src: templates/default
+          dest: /etc/nginx/sites-available/
+
+    - name: copy a testing PHP file to the server
+      template:
+          src: templates/info.php
+          dest: /var/www/html/
+
+    - name: restart php7.0-fpm
+      service:
+        name: php7.0-fpm
+        state: restarted
+
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
