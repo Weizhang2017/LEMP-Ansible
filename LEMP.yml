@@ -1,11 +1,6 @@
 ---
 
 - hosts: server
-  handlers:
-    - name: restart nginx
-      service: name=postfix state=restarted
-    - name: restart php7.0-fpm
-      service: name=php7.0-fpm state=restarted
 
   tasks:
 
